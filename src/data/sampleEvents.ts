@@ -1,0 +1,73 @@
+import { EventFormData } from '../types';
+import { getDefaultEventDate } from '../utils/date';
+
+export const SAMPLE_EVENTS: { id: string; label: string; badge: string; data: EventFormData }[] = [
+  {
+    id: 'royal-wedding',
+    label: 'Royal Palace Wedding (Jaipur)',
+    badge: 'Grand Wedding',
+    data: {
+      eventName: 'Aarav & Ananya’s Royal Marwar Wedding',
+      eventType: 'wedding',
+      hostName: 'Mr. & Mrs. Singhania',
+      location: 'Jaipur, Rajasthan',
+      eventDate: getDefaultEventDate(90),
+      guestCount: 350,
+      totalBudgetINR: 2500000,
+      theme: 'Royal Rajasthani Heritage & Regal Plum Gold',
+      dietaryPreference: 'Traditional Rajasthani & North Indian with Live Chaat (Strict Pure Veg available)',
+      specialPreferences: 'Grand baraat with vintage car, drone coverage, royal dhol procession, and personalized puppet show for kids.',
+    },
+  },
+  {
+    id: 'milestone-birthday',
+    label: '30th Sunset Terrace Soirée (Bengaluru)',
+    badge: 'Milestone Birthday',
+    data: {
+      eventName: 'Rhea’s 30th Golden Hour Rooftop Bash',
+      eventType: 'birthday',
+      hostName: 'Rhea Kapoor',
+      location: 'Indiranagar, Bengaluru',
+      eventDate: getDefaultEventDate(25),
+      guestCount: 50,
+      totalBudgetINR: 180000,
+      theme: 'Bohemian Sunset Chic & Warm Fairy Lights',
+      dietaryPreference: 'Artisanal finger foods, sourdough woodfired pizza counter, and signature craft mocktails/cocktails',
+      specialPreferences: 'Acoustic live duo for sunset, Polaroid photo booth with memory guestbook, personalized retro cupcakes.',
+    },
+  },
+  {
+    id: 'silver-anniversary',
+    label: '25th Silver Jubilee Gala (Mumbai)',
+    badge: 'Anniversary',
+    data: {
+      eventName: 'Sunil & Meera’s 25th Silver Jubilee Extravaganza',
+      eventType: 'anniversary',
+      hostName: 'Sunil & Meera Verma',
+      location: 'Bandra, Mumbai',
+      eventDate: getDefaultEventDate(45),
+      guestCount: 120,
+      totalBudgetINR: 650000,
+      theme: 'Silver Glamour & Midnight Violet Luxe',
+      dietaryPreference: 'Pan-Asian starters with Royal Mughlai buffet and live waffle/crepe dessert bar',
+      specialPreferences: 'Couple dance choreography, LED memory montage video wall, return favors with artisanal silver coins and scented candles.',
+    },
+  },
+  {
+    id: 'community-diwali',
+    label: 'Diwali Community Mela (Delhi)',
+    badge: 'Community Event',
+    data: {
+      eventName: 'Gulmohar Enclave Grand Diwali & Cultural Mela',
+      eventType: 'community',
+      hostName: 'Gulmohar Resident Welfare Association',
+      location: 'New Delhi',
+      eventDate: getDefaultEventDate(30),
+      guestCount: 450,
+      totalBudgetINR: 400000,
+      theme: 'Traditional Brass, Marigold Yellow & Deep Indigo',
+      dietaryPreference: 'Street food counters (Kolkata puchka, Delhi chole bhature, Pav bhaji, Rabdi jalebi)',
+      specialPreferences: 'Stage for cultural folk dance performances, eco-friendly diyas and rangoli competition, safe green fireworks display.',
+    },
+  },
+];
