@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Briefcase,
   HelpCircle,
@@ -26,13 +26,16 @@ const STATUS_CONFIG: Record<
   booked: { label: 'Confirmed & Booked', bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200' },
 };
 
-export const VendorChecklist: React.FC<VendorChecklistProps> = ({
+export const VendorChecklist: React.FC<VendorChecklistProps> = React.memo(({
   vendors,
   onUpdateVendorStatus,
   onRegenerateVendors,
   isRegenerating,
 }) => {
-  const bookedCount = vendors.filter((v) => v.status === 'booked').length;
+  const bookedCount = useMemo(
+    () => vendors.filter((v) => v.status === 'booked').length,
+    [vendors],
+  );
 
   return (
     <div className="bg-white rounded-3xl border border-cream-200/90 shadow-soft p-6 sm:p-8 space-y-6">
@@ -55,7 +58,8 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
         <button
           onClick={onRegenerateVendors}
           disabled={isRegenerating}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-600"
+          aria-label="Regenerate vendor guide section"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-purple-600' : ''}`} />
           <span>{isRegenerating ? 'Regenerating...' : 'Regenerate Vendor Guide'}</span>
@@ -63,8 +67,8 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
       </div>
 
       {/* Advisory & Compliance Banner */}
-      <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-amber-900 flex items-start space-x-3 text-xs leading-relaxed">
-        <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+      <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-amber-900 flex items-start space-x-3 text-xs leading-relaxed" role="note">
+        <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
         <div>
           <span className="font-bold">Procurement Advisory Notice:</span> Vendor items below are structured planning frameworks and inquiry guides tailored to your event requirements. CelebrationAI does not fabricate live vendor availability or claim third-party endorsements. Please confirm contracts, licensing, and schedules directly with chosen vendors.
         </div>
@@ -104,8 +108,8 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                   <select
                     value={vendor.status}
                     onChange={(e) => onUpdateVendorStatus(vendor.id, e.target.value as VendorStatus)}
-                    aria-label={`Status for ${vendor.title}`}
-                    className={`text-xs font-bold rounded-xl px-2.5 py-1.5 border cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-200 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                    aria-label={`Status for vendor ${vendor.title}`}
+                    className={`text-xs font-bold rounded-xl px-2.5 py-1.5 border cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-300 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
                   >
                     <option value="not_contacted">To Research</option>
                     <option value="shortlisted">Shortlisted</option>
@@ -139,7 +143,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                 {vendor.keyDeliverables && vendor.keyDeliverables.length > 0 && (
                   <div>
                     <div className="text-xs font-bold text-slate-700 flex items-center gap-1 mb-1.5">
-                      <CheckSquare className="w-3.5 h-3.5 text-purple-600" />
+                      <CheckSquare className="w-3.5 h-3.5 text-purple-600" aria-hidden="true" />
                       <span>Key Expected Deliverables</span>
                     </div>
                     <ul className="text-xs text-slate-600 space-y-1 pl-4 list-disc marker:text-purple-500">
@@ -156,7 +160,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                 {vendor.essentialQuestions && vendor.essentialQuestions.length > 0 && (
                   <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100">
                     <div className="text-xs font-bold text-purple-900 flex items-center gap-1 mb-1.5">
-                      <HelpCircle className="w-3.5 h-3.5 text-purple-700" />
+                      <HelpCircle className="w-3.5 h-3.5 text-purple-700" aria-hidden="true" />
                       <span>Essential Questions to Ask</span>
                     </div>
                     <ul className="text-xs text-slate-700 space-y-1.5 pl-4 list-disc marker:text-purple-600">
@@ -182,4 +186,6 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
       </div>
     </div>
   );
-};
+});
+
+VendorChecklist.displayName = 'VendorChecklist';

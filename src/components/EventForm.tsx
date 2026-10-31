@@ -61,7 +61,7 @@ const POPULAR_CITIES = [
   'Chennai',
 ];
 
-export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => {
+export const EventForm: React.FC<EventFormProps> = React.memo(({ onSubmit, isLoading }) => {
   const [formData, setFormData] = useState<EventFormData>({
     eventName: '',
     eventType: 'wedding',
@@ -119,6 +119,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     if (validate()) {
       onSubmit(formData);
     }
@@ -175,15 +176,17 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
 
         {/* 1. Event Type Selector */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">
+          <label id="event-type-label" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">
             1. Select Event Type <span className="text-rose-500">*</span>
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div role="radiogroup" aria-labelledby="event-type-label" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {EVENT_TYPES.map((et) => {
               const isSelected = formData.eventType === et.type;
               return (
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={isSelected}
                   key={et.type}
                   onClick={() => setFormData({ ...formData, eventType: et.type })}
                   className={`p-3.5 rounded-2xl border text-left transition-all ${
@@ -192,7 +195,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
                       : 'border-cream-200 hover:border-purple-300 hover:bg-cream-50/50 bg-white'
                   }`}
                 >
-                  <div className="text-2xl mb-1.5">{et.icon}</div>
+                  <div className="text-2xl mb-1.5" aria-hidden="true">{et.icon}</div>
                   <div className="font-bold text-sm text-slate-900">{et.label}</div>
                   <div className="text-[11px] text-slate-500 leading-tight mt-0.5 line-clamp-1">
                     {et.desc}
@@ -206,11 +209,17 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         {/* 2. Event Name & Host Name */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            <label htmlFor="event-name" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Event Title / Name <span className="text-rose-500">*</span>
             </label>
             <input
+              id="event-name"
+              name="eventName"
               type="text"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(errors.eventName)}
+              aria-describedby={errors.eventName ? 'error-event-name' : undefined}
               value={formData.eventName}
               onChange={(e) => setFormData({ ...formData, eventName: e.target.value })}
               placeholder="e.g. Aarav & Ananya’s Royal Wedding"
@@ -221,18 +230,20 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
               }`}
             />
             {errors.eventName && (
-              <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
+              <p id="error-event-name" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
                 {errors.eventName}
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            <label htmlFor="host-name" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Host / Celebrant Name
             </label>
             <input
+              id="host-name"
+              name="hostName"
               type="text"
               value={formData.hostName}
               onChange={(e) => setFormData({ ...formData, hostName: e.target.value })}
@@ -245,15 +256,21 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         {/* 3. Location & City suggestions */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+            <label htmlFor="event-location" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
               Location / City <span className="text-rose-500">*</span>
             </label>
             <span className="text-[11px] text-slate-400">Indian cities & destination hubs</span>
           </div>
           <div className="relative">
-            <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" />
+            <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" aria-hidden="true" />
             <input
+              id="event-location"
+              name="location"
               type="text"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(errors.location)}
+              aria-describedby={errors.location ? 'error-location' : undefined}
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="e.g. Jaipur, Rajasthan or Indiranagar, Bengaluru"
@@ -265,8 +282,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
             />
           </div>
           {errors.location && (
-            <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="error-location" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {errors.location}
             </p>
           )}
@@ -291,7 +308,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              <label htmlFor="event-date" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                 Celebration Date <span className="text-rose-500">*</span>
               </label>
               {daysToEvent >= 0 && (
@@ -301,9 +318,15 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
               )}
             </div>
             <div className="relative">
-              <Calendar className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" />
+              <Calendar className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" aria-hidden="true" />
               <input
+                id="event-date"
+                name="eventDate"
                 type="date"
+                required
+                aria-required="true"
+                aria-invalid={Boolean(errors.eventDate)}
+                aria-describedby={errors.eventDate ? 'error-event-date' : undefined}
                 value={formData.eventDate}
                 onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 ${
@@ -314,8 +337,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
               />
             </div>
             {errors.eventDate && (
-              <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
+              <p id="error-event-date" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
                 {errors.eventDate}
               </p>
             )}
@@ -323,7 +346,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              <label htmlFor="guest-count" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                 Guest Count <span className="text-rose-500">*</span>
               </label>
               <span className="text-[11px] text-slate-400">
@@ -331,11 +354,17 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
               </span>
             </div>
             <div className="relative">
-              <Users className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" />
+              <Users className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" aria-hidden="true" />
               <input
+                id="guest-count"
+                name="guestCount"
                 type="number"
                 min="1"
                 max="20000"
+                required
+                aria-required="true"
+                aria-invalid={Boolean(errors.guestCount)}
+                aria-describedby={errors.guestCount ? 'error-guest-count' : undefined}
                 value={formData.guestCount || ''}
                 onChange={(e) => setFormData({ ...formData, guestCount: parseInt(e.target.value) || 0 })}
                 placeholder="e.g. 150"
@@ -359,8 +388,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
               </div>
             </div>
             {errors.guestCount && (
-              <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
+              <p id="error-guest-count" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
                 {errors.guestCount}
               </p>
             )}
@@ -370,7 +399,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         {/* 5. Total Budget in INR with Indian formatting helper & presets */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+            <label htmlFor="total-budget" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
               Total Budget in INR (₹) <span className="text-rose-500">*</span>
             </label>
             <span className="text-xs font-bold text-purple-800 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
@@ -379,11 +408,17 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
           </div>
 
           <div className="relative">
-            <IndianRupee className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" />
+            <IndianRupee className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" aria-hidden="true" />
             <input
+              id="total-budget"
+              name="totalBudgetINR"
               type="number"
               step="5000"
               min="10000"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(errors.totalBudgetINR)}
+              aria-describedby={errors.totalBudgetINR ? 'error-total-budget' : undefined}
               value={formData.totalBudgetINR || ''}
               onChange={(e) => setFormData({ ...formData, totalBudgetINR: parseInt(e.target.value) || 0 })}
               placeholder="e.g. 500000"
@@ -395,8 +430,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
             />
           </div>
           {errors.totalBudgetINR && (
-            <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="error-total-budget" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {errors.totalBudgetINR}
             </p>
           )}
@@ -424,15 +459,21 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         {/* 6. Theme & Preferred Aesthetics */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+            <label htmlFor="theme-vibe" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
               Preferred Theme / Vibe <span className="text-rose-500">*</span>
             </label>
             <span className="text-[11px] text-slate-400">Colors, aesthetic & atmosphere</span>
           </div>
           <div className="relative">
-            <Palette className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" />
+            <Palette className="absolute left-3.5 top-3 w-4 h-4 text-purple-600" aria-hidden="true" />
             <input
+              id="theme-vibe"
+              name="theme"
               type="text"
+              required
+              aria-required="true"
+              aria-invalid={Boolean(errors.theme)}
+              aria-describedby={errors.theme ? 'error-theme' : undefined}
               value={formData.theme}
               onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
               placeholder="e.g. Royal Marwar Elegance, Bohemian Sunset Terrace, etc."
@@ -444,8 +485,8 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
             />
           </div>
           {errors.theme && (
-            <p className="text-xs text-rose-500 mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="error-theme" role="alert" className="text-xs text-rose-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {errors.theme}
             </p>
           )}
@@ -468,11 +509,13 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
         {/* 7. Dietary & Special Preferences */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
-              <Utensils className="w-3.5 h-3.5 text-purple-600" />
+            <label htmlFor="dietary-preference" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
+              <Utensils className="w-3.5 h-3.5 text-purple-600" aria-hidden="true" />
               <span>Dietary / Food Preferences</span>
             </label>
             <textarea
+              id="dietary-preference"
+              name="dietaryPreference"
               rows={3}
               value={formData.dietaryPreference || ''}
               onChange={(e) => setFormData({ ...formData, dietaryPreference: e.target.value })}
@@ -482,11 +525,13 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
-              <HeartHandshake className="w-3.5 h-3.5 text-purple-600" />
+            <label htmlFor="special-preferences" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
+              <HeartHandshake className="w-3.5 h-3.5 text-purple-600" aria-hidden="true" />
               <span>Special Requests & Entertainment</span>
             </label>
             <textarea
+              id="special-preferences"
+              name="specialPreferences"
               rows={3}
               value={formData.specialPreferences || ''}
               onChange={(e) => setFormData({ ...formData, specialPreferences: e.target.value })}
@@ -501,6 +546,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
           <button
             type="submit"
             disabled={isLoading}
+            aria-busy={isLoading}
             className={`w-full py-4 px-6 rounded-2xl font-bold text-white text-base shadow-lg transition-all flex items-center justify-center space-x-2 ${
               isLoading
                 ? 'bg-purple-400 cursor-not-allowed'
@@ -545,4 +591,6 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, isLoading }) => 
       </form>
     </div>
   );
-};
+});
+
+EventForm.displayName = 'EventForm';

@@ -23,7 +23,7 @@ interface PlanOverviewBannerProps {
   onExportJSON: () => void;
 }
 
-export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
+export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = React.memo(({
   plan,
   onEditParameters,
   onOpenSaveModal,
@@ -47,7 +47,7 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
             </span>
             <span className="bg-amber-100 text-amber-900 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>{generatedBy === 'gemini' ? (modelUsed || 'Gemini 1.5 Flash') : 'Curated Expert Engine'}</span>
+              <span>{generatedBy === 'gemini' ? (modelUsed || 'Gemini 3.5 Flash') : 'Curated Expert Engine'}</span>
             </span>
             {daysLeft >= 0 ? (
               <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
@@ -125,7 +125,8 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
         <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 pt-2 lg:pt-0 no-print">
           <button
             onClick={onEditParameters}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="Edit event parameters and configuration"
           >
             <Edit3 className="w-4 h-4 text-purple-600" />
             <span>Edit Event Input</span>
@@ -133,7 +134,8 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
 
           <button
             onClick={onPrint}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="Print celebration plan or save as PDF"
           >
             <Printer className="w-4 h-4 text-purple-600" />
             <span>Print / Save PDF</span>
@@ -141,7 +143,8 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
 
           <button
             onClick={onExportJSON}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl border border-cream-200 hover:border-purple-300 bg-white hover:bg-purple-50 text-slate-700 text-xs sm:text-sm font-semibold transition shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="Export celebration plan data as JSON file"
           >
             <Download className="w-4 h-4 text-purple-600" />
             <span>Export Plan (JSON)</span>
@@ -149,7 +152,8 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
 
           <button
             onClick={onOpenSaveModal}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs sm:text-sm font-semibold transition shadow-xs"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs sm:text-sm font-semibold transition shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="View cloud sync and storage options"
           >
             <Database className="w-4 h-4 text-purple-700" />
             <span>Cloud Sync (Phase 2)</span>
@@ -158,4 +162,6 @@ export const PlanOverviewBanner: React.FC<PlanOverviewBannerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+PlanOverviewBanner.displayName = 'PlanOverviewBanner';

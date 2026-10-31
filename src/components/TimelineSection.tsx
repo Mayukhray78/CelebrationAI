@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   CalendarClock,
   CheckCircle2,
@@ -17,17 +17,20 @@ interface TimelineSectionProps {
   isRegenerating: boolean;
 }
 
-export const TimelineSection: React.FC<TimelineSectionProps> = ({
+export const TimelineSection: React.FC<TimelineSectionProps> = React.memo(({
   phases,
   onToggleTask,
   onRegenerateTimeline,
   isRegenerating,
 }) => {
-  // Calculate total and completed tasks
-  const allTasks = phases.flatMap((p) => p.tasks);
-  const totalTasks = allTasks.length;
-  const completedTasks = allTasks.filter((t) => t.completed).length;
-  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  // Memoize total and completed tasks
+  const { totalTasks, completedTasks, progressPercent } = useMemo(() => {
+    const tasks = phases.flatMap((p) => p.tasks);
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.completed).length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { totalTasks: total, completedTasks: completed, progressPercent: percent };
+  }, [phases]);
 
   const handleTaskClick = (phaseId: string, taskId: string, currentlyCompleted: boolean) => {
     onToggleTask(phaseId, taskId);
@@ -63,7 +66,8 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         <button
           onClick={onRegenerateTimeline}
           disabled={isRegenerating}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-600"
+          aria-label="Regenerate timeline roadmap section"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-purple-600' : ''}`} />
           <span>{isRegenerating ? 'Regenerating...' : 'Regenerate Timeline'}</span>
@@ -83,12 +87,19 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
             <div className="text-[11px] text-slate-500">
               {progressPercent === 100
                 ? '🎉 All milestones completed! Ready for a flawless celebration.'
-                : 'Click any task below to mark it done as you finalize arrangements.'}
+                : 'Click or press Enter/Space on any task below to mark it done as you finalize arrangements.'}
             </div>
           </div>
         </div>
 
-        <div className="w-full sm:w-48 bg-cream-200 rounded-full h-3 overflow-hidden shadow-inner">
+        <div
+          className="w-full sm:w-48 bg-cream-200 rounded-full h-3 overflow-hidden shadow-inner"
+          role="progressbar"
+          aria-valuenow={progressPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Milestone preparation progress ${progressPercent} percent`}
+        >
           <div
             className="h-full bg-gradient-to-r from-purple-700 to-emerald-500 transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
@@ -128,19 +139,29 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
               </div>
 
               {/* Tasks List */}
-              <div className="space-y-2.5">
+              <div className="space-y-2.5" role="list" aria-label={`Tasks for ${phase.phaseName}`}>
                 {phase.tasks.map((task) => (
                   <div
                     key={task.id}
+                    role="checkbox"
+                    aria-checked={task.completed}
+                    tabIndex={0}
                     onClick={() => handleTaskClick(phase.id, task.id, task.completed)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start space-x-3 ${
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault();
+                        handleTaskClick(phase.id, task.id, task.completed);
+                      }
+                    }}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start space-x-3 focus:outline-none focus:ring-2 focus:ring-purple-600 ${
                       task.completed
                         ? 'bg-emerald-50/40 border-emerald-200/80 text-slate-500'
                         : 'bg-white border-cream-200 hover:border-purple-300 hover:shadow-xs text-slate-800'
                     }`}
+                    aria-label={`Milestone task: ${task.title}, priority: ${task.priority}, status: ${task.completed ? 'completed' : 'pending'}`}
                   >
                     {/* Checkbox Icon */}
-                    <div className="pt-0.5 shrink-0">
+                    <div className="pt-0.5 shrink-0" aria-hidden="true">
                       {task.completed ? (
                         <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                       ) : (
@@ -202,4 +223,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
       </div>
     </div>
   );
-};
+});
+
+TimelineSection.displayName = 'TimelineSection';

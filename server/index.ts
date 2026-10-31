@@ -1,6 +1,4 @@
-
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,76 +7,114 @@ import {
   generatePlanWithGemini,
   regenerateSectionWithGemini,
   isGeminiConfigured,
+  getGeminiModelName,
 } from './gemini.js';
 
 import {
-  EventFormData,
-  CelebrationPlan,
-  PlanSectionKey,
-} from './types.js';
+  validateEventFormData,
+  validateRegenerateSectionInput,
+} from './validators.js';
+
+import {
+  securityHeadersMiddleware,
+  configureCors,
+  createRateLimiter,
+  errorHandlerMiddleware,
+} from './middleware.js';
+
+import {
+  planCache,
+  healthCache,
+} from './cache.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Resolve the directory of the compiled server file.
-// Expected layout:
-// project/
-//   dist/           -> built React frontend
-//   dist-server/    -> compiled Express backend
+// Resolve directory of compiled server file (for serving built React frontend in production)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientDistPath = path.resolve(__dirname, '../dist');
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+// Disable X-Powered-By Express header for security
+app.disable('x-powered-by');
 
-// Health and configuration status
+// Trust reverse proxies (Render, Cloudflare, etc.) for correct IP resolution in rate limiting
+app.set('trust proxy', 1);
+
+// Apply enhanced security headers
+app.use(securityHeadersMiddleware);
+
+// Apply configured CORS
+app.use(configureCors(process.env.ALLOWED_ORIGINS));
+
+// Enforce safe payload size limits (500KB protects against DoS while accommodating rich event configs)
+app.use(express.json({ limit: '500kb' }));
+
+// Global API rate limiter (150 requests per 15 minutes per IP)
+const globalApiLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 150,
+  message: 'Too many API requests from this IP. Please try again in a few minutes.',
+});
+
+// Stricter rate limiter for AI generation endpoints (30 requests per minute per IP)
+const aiGenerationLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  message: 'Plan generation rate limit reached. Please wait a minute before generating again.',
+});
+
+// Apply global rate limiting to all /api/ routes
+app.use('/api/', globalApiLimiter);
+
+// Health and Configuration Status (cached for 30 seconds for efficiency)
 app.get('/api/health', (_req, res) => {
-  const configured = isGeminiConfigured();
+  const cachedHealth = healthCache.get('server_health');
+  if (cachedHealth) {
+    return res.json(cachedHealth);
+  }
 
-  res.json({
+  const configured = isGeminiConfigured();
+  const healthData = {
     status: 'ok',
     geminiConfigured: configured,
     mode: configured ? 'gemini_active' : 'curated_demo_mode',
+    model: configured ? getGeminiModelName() : 'curated_engine',
     timestamp: new Date().toISOString(),
-  });
+  };
+
+  healthCache.set('server_health', healthData);
+  return res.json(healthData);
 });
 
-// Generate a complete celebration plan
-app.post('/api/plan/generate', async (req, res) => {
+// Generate Full Celebration Plan (with validation, caching & rate limiting)
+app.post('/api/plan/generate', aiGenerationLimiter, async (req, res, next) => {
   try {
-    const formData = req.body as EventFormData;
-
-    if (
-      !formData ||
-      !formData.eventName ||
-      !formData.location ||
-      formData.totalBudgetINR == null
-    ) {
+    const validation = validateEventFormData(req.body);
+    if (!validation.isValid || !validation.sanitized) {
       return res.status(400).json({
-        error:
-          'Missing required fields: eventName, location, and totalBudgetINR are required.',
+        error: validation.errors[0] || 'Invalid event parameters.',
+        details: validation.errors,
       });
     }
 
-    if (
-      !Number.isFinite(Number(formData.totalBudgetINR)) ||
-      Number(formData.totalBudgetINR) < 10000
-    ) {
-      return res.status(400).json({
-        error:
-          'Minimum budget must be at least ₹10,000 for realistic event planning.',
-      });
-    }
+    const formData = validation.sanitized;
 
-    if (
-      !Number.isFinite(Number(formData.guestCount)) ||
-      Number(formData.guestCount) < 1
-    ) {
-      return res.status(400).json({
-        error: 'Guest count must be at least 1.',
+    // Generate deterministic cache key for exact repeat queries (e.g. rapid reloads / identical presets)
+    const cacheKey = `plan:${formData.eventType}:${formData.location}:${formData.guestCount}:${formData.totalBudgetINR}:${formData.theme}`;
+    const cachedPlan = planCache.get(cacheKey);
+    if (cachedPlan) {
+      return res.json({
+        success: true,
+        plan: cachedPlan,
+        meta: {
+          geminiConfigured: isGeminiConfigured(),
+          source: cachedPlan.generatedBy,
+          modelUsed: cachedPlan.modelUsed,
+          cached: true,
+        },
       });
     }
 
@@ -87,6 +123,9 @@ app.post('/api/plan/generate', async (req, res) => {
     );
 
     const plan = await generatePlanWithGemini(formData);
+
+    // Cache successful generation
+    planCache.set(cacheKey, plan);
 
     return res.json({
       success: true,
@@ -98,36 +137,22 @@ app.post('/api/plan/generate', async (req, res) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[API] Error in /api/plan/generate:', error);
-
-    const details =
-      error instanceof Error ? error.message : 'Unknown error';
-
-    return res.status(500).json({
-      error: 'Failed to generate celebration plan. Please check server logs.',
-      details,
-    });
+    next(error);
   }
 });
 
-// Regenerate one section of an existing plan
-app.post('/api/plan/regenerate-section', async (req, res) => {
+// Regenerate Single Section (with validation & rate limiting)
+app.post('/api/plan/regenerate-section', aiGenerationLimiter, async (req, res, next) => {
   try {
-    const {
-      currentPlan,
-      sectionKey,
-      refinementPrompt,
-    }: {
-      currentPlan: CelebrationPlan;
-      sectionKey: PlanSectionKey;
-      refinementPrompt?: string;
-    } = req.body;
-
-    if (!currentPlan || !sectionKey) {
+    const validation = validateRegenerateSectionInput(req.body);
+    if (!validation.isValid || !validation.sanitized) {
       return res.status(400).json({
-        error: 'currentPlan and sectionKey are required.',
+        error: validation.errors[0] || 'Invalid section regeneration parameters.',
+        details: validation.errors,
       });
     }
+
+    const { currentPlan, sectionKey, refinementPrompt } = validation.sanitized;
 
     console.log(
       `[API] Regenerating section "${sectionKey}" with prompt: "${refinementPrompt || 'Default'}"`,
@@ -147,26 +172,17 @@ app.post('/api/plan/regenerate-section', async (req, res) => {
       modelUsed: result.modelUsed,
     });
   } catch (error: unknown) {
-    console.error(
-      '[API] Error in /api/plan/regenerate-section:',
-      error,
-    );
-
-    const details =
-      error instanceof Error ? error.message : 'Unknown error';
-
-    return res.status(500).json({
-      error: 'Failed to regenerate section.',
-      details,
-    });
+    next(error);
   }
 });
 
-// Serve the built React application
-app.use(express.static(clientDistPath));
+// Serve the built React application in production (Render deployment)
+app.use(express.static(clientDistPath, {
+  maxAge: '1h',
+  etag: true,
+}));
 
-// Return the React entry point for frontend routes.
-// API requests should continue to return normal API responses.
+// Return the React entry point for frontend SPA routes
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return next();
@@ -179,21 +195,20 @@ app.get('*', (req, res, next) => {
   });
 });
 
-// Handle unknown API endpoints and other errors
-app.use((req, res) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found.' });
-  }
-
-  return res.status(404).send('Page not found.');
+// Handle unknown API endpoints
+app.use('/api/*', (_req, res) => {
+  return res.status(404).json({ error: 'API endpoint not found.' });
 });
+
+// Attach centralized error handler
+app.use(errorHandlerMiddleware);
 
 app.listen(PORT, () => {
   console.log(`CelebrationAI server listening on port ${PORT}`);
   console.log(
     `Gemini status: ${
       isGeminiConfigured()
-        ? 'API key configured'
+        ? `API key configured (model: ${getGeminiModelName()})`
         : 'Curated fallback mode (GEMINI_API_KEY is not set)'
     }`,
   );

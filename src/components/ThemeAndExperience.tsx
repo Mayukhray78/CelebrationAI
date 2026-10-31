@@ -22,7 +22,7 @@ interface ThemeAndExperienceProps {
   isRegeneratingFood: boolean;
 }
 
-export const ThemeAndExperience: React.FC<ThemeAndExperienceProps> = ({
+export const ThemeAndExperience: React.FC<ThemeAndExperienceProps> = React.memo(({
   themeAndDecor,
   foodAndEntertainment,
   onRegenerateThemeDecor,
@@ -52,7 +52,8 @@ export const ThemeAndExperience: React.FC<ThemeAndExperienceProps> = ({
           <button
             onClick={onRegenerateThemeDecor}
             disabled={isRegeneratingTheme}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="Regenerate theme and decor concepts"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRegeneratingTheme ? 'animate-spin text-purple-600' : ''}`} />
             <span>{isRegeneratingTheme ? 'Regenerating...' : 'Regenerate Theme & Decor'}</span>
@@ -192,7 +193,8 @@ export const ThemeAndExperience: React.FC<ThemeAndExperienceProps> = ({
           <button
             onClick={onRegenerateFoodEntertainment}
             disabled={isRegeneratingFood}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-600"
+            aria-label="Regenerate food and entertainment section"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRegeneratingFood ? 'animate-spin text-purple-600' : ''}`} />
             <span>{isRegeneratingFood ? 'Regenerating...' : 'Regenerate Food & Entertainment'}</span>
@@ -353,4 +355,6 @@ export const ThemeAndExperience: React.FC<ThemeAndExperienceProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ThemeAndExperience.displayName = 'ThemeAndExperience';

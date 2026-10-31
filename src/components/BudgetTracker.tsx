@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   RefreshCw,
   TrendingUp,
@@ -15,7 +15,7 @@ interface BudgetTrackerProps {
   isRegenerating: boolean;
 }
 
-export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
+export const BudgetTracker: React.FC<BudgetTrackerProps> = React.memo(({
   categories,
   totalBudgetINR,
   onUpdateCategorySpent,
@@ -25,7 +25,10 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
-  const stats = calculateBudgetStats(totalBudgetINR, categories);
+  const stats = useMemo(
+    () => calculateBudgetStats(totalBudgetINR, categories),
+    [totalBudgetINR, categories],
+  );
 
   const startEdit = (cat: BudgetCategory) => {
     setEditingCategoryId(cat.id);
@@ -59,7 +62,8 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
         <button
           onClick={onRegenerateBudget}
           disabled={isRegenerating}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto"
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-cream-200 hover:border-purple-300 bg-cream-50 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition disabled:opacity-50 self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-600"
+          aria-label="Regenerate budget section"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin text-purple-600' : ''}`} />
           <span>{isRegenerating ? 'Regenerating...' : 'Regenerate Budget'}</span>
@@ -150,7 +154,14 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
         </div>
 
         {/* Progress Track */}
-        <div className="w-full bg-cream-200 rounded-full h-3.5 overflow-hidden flex shadow-inner">
+        <div
+          className="w-full bg-cream-200 rounded-full h-3.5 overflow-hidden flex shadow-inner"
+          role="progressbar"
+          aria-valuenow={stats.utilizationPercentage}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Budget utilization ${stats.utilizationPercentage} percent`}
+        >
           <div
             className={`h-full transition-all duration-500 ${
               stats.utilizationStatus === 'danger'
@@ -168,7 +179,7 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
           <div className="text-[11px] text-slate-500 font-medium mb-1">
             Category Breakdown Distribution:
           </div>
-          <div className="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-100">
+          <div className="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-100" role="group" aria-label="Category proportional distribution">
             {categories.map((cat) => (
               <div
                 key={cat.id}
@@ -246,13 +257,17 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveEdit(cat.id)}
-                          className="w-20 px-1.5 py-0.5 border border-purple-400 rounded text-xs font-bold focus:outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEdit(cat.id);
+                            if (e.key === 'Escape') setEditingCategoryId(null);
+                          }}
+                          className="w-20 px-1.5 py-0.5 border border-purple-400 rounded text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
                           autoFocus
+                          aria-label={`Enter spent amount for ${cat.name}`}
                         />
                         <button
                           onClick={() => saveEdit(cat.id)}
-                          className="px-2 py-0.5 bg-purple-700 text-white rounded text-[11px] font-semibold"
+                          className="px-2 py-0.5 bg-purple-700 hover:bg-purple-800 text-white rounded text-[11px] font-semibold"
                         >
                           Save
                         </button>
@@ -260,8 +275,9 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
                     ) : (
                       <button
                         onClick={() => startEdit(cat)}
-                        className="group flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-cream-50 hover:bg-purple-50 border border-cream-200 text-xs font-semibold text-slate-700 transition"
+                        className="group flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-cream-50 hover:bg-purple-50 border border-cream-200 text-xs font-semibold text-slate-700 transition focus:outline-none focus:ring-2 focus:ring-purple-600"
                         title="Click to record actual spend"
+                        aria-label={`Record spent amount for ${cat.name}, currently ${formatINR(cat.spentAmount)}`}
                       >
                         <span>{formatINR(cat.spentAmount)}</span>
                         <span className="text-[10px] text-purple-600 opacity-60 group-hover:opacity-100">
@@ -278,4 +294,6 @@ export const BudgetTracker: React.FC<BudgetTrackerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+BudgetTracker.displayName = 'BudgetTracker';

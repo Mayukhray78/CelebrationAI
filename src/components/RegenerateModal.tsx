@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, X } from 'lucide-react';
 import { PlanSectionKey } from '../types';
 
@@ -39,7 +39,7 @@ const SECTION_PROMPT_SUGGESTIONS: Record<string, string[]> = {
   ],
 };
 
-export const RegenerateModal: React.FC<RegenerateModalProps> = ({
+export const RegenerateModal: React.FC<RegenerateModalProps> = React.memo(({
   isOpen,
   sectionKey,
   sectionTitle,
@@ -48,6 +48,17 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
   isLoading,
 }) => {
   const [prompt, setPrompt] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen || !sectionKey) return null;
 
@@ -58,15 +69,25 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cream-200 relative">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isLoading) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="regenerate-modal-title"
+        className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cream-200 relative"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700">
-              <Sparkles className="w-5 h-5" />
+              <Sparkles className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-bold text-slate-900">
+              <h3 id="regenerate-modal-title" className="font-serif text-lg font-bold text-slate-900">
                 Regenerate {sectionTitle}
               </h3>
               <p className="text-xs text-slate-500">
@@ -76,18 +97,22 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1"
+            disabled={isLoading}
+            aria-label="Close dialog"
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            <label htmlFor="refinement-instructions" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Refinement Instructions (Optional)
             </label>
             <textarea
+              id="refinement-instructions"
+              name="refinementInstructions"
               rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -123,7 +148,7 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 transition"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 transition rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             Cancel
           </button>
@@ -132,16 +157,16 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
             type="button"
             onClick={handleConfirm}
             disabled={isLoading}
-            className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center space-x-2 transition disabled:opacity-50"
+            className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center space-x-2 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             {isLoading ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                 <span>Regenerating...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                 <span>Generate Fresh Section</span>
               </>
             )}
@@ -150,4 +175,6 @@ export const RegenerateModal: React.FC<RegenerateModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+RegenerateModal.displayName = 'RegenerateModal';

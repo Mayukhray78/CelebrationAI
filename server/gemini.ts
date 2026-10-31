@@ -2,7 +2,16 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CelebrationPlan, EventFormData, PlanSectionKey } from './types.js';
+import {
+  CelebrationPlan,
+  EventFormData,
+  PlanSectionKey,
+  BudgetCategory,
+  TimelinePhase,
+  VendorItem,
+  ThemeDecorSection,
+  FoodEntertainmentSection,
+} from './types.js';
 import { generateCuratedPlan } from './mockPlanGenerator.js';
 
 export function getApiKey(): string {
@@ -28,10 +37,32 @@ function getGenAI(): GoogleGenerativeAI | null {
 }
 
 /**
+ * Timeout wrapper for Gemini API calls to prevent hanging requests.
+ */
+async function generateWithTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 28000,
+): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Gemini request exceeded timeout of ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
  * Sanitizes minor syntax flaws from model output such as:
  * - Trailing commas before } or ]
  * - TypeScript union pipes like "essential" | "recommended"
  * - C-style comments
+ * - Single-quoted property names or values
  */
 export function sanitizeJsonString(str: string): string {
   return str
@@ -47,7 +78,7 @@ export function sanitizeJsonString(str: string): string {
  * Robustly extracts and parses JSON from Gemini responses,
  * even when wrapped in markdown codeblocks (```json ... ```) or conversational preambles.
  */
-export function extractJSON(rawText: string): any {
+export function extractJSON<T = Record<string, unknown>>(rawText: string): T {
   if (!rawText || typeof rawText !== 'string') {
     throw new Error('Empty response from model');
   }
@@ -59,11 +90,11 @@ export function extractJSON(rawText: string): any {
   const targetStr = codeBlockMatch && codeBlockMatch[1] ? codeBlockMatch[1].trim() : trimmed;
 
   try {
-    return JSON.parse(targetStr);
+    return JSON.parse(targetStr) as T;
   } catch {
     // Try sanitized version
     try {
-      return JSON.parse(sanitizeJsonString(targetStr));
+      return JSON.parse(sanitizeJsonString(targetStr)) as T;
     } catch {
       // Try finding the first '{' and last '}'
       const firstBrace = targetStr.indexOf('{');
@@ -71,9 +102,9 @@ export function extractJSON(rawText: string): any {
       if (firstBrace !== -1 && lastBrace > firstBrace) {
         const candidate = targetStr.substring(firstBrace, lastBrace + 1);
         try {
-          return JSON.parse(candidate);
+          return JSON.parse(candidate) as T;
         } catch {
-          return JSON.parse(sanitizeJsonString(candidate));
+          return JSON.parse(sanitizeJsonString(candidate)) as T;
         }
       }
       throw new Error('Failed to locate valid JSON structure in model response');
@@ -85,9 +116,12 @@ export function extractJSON(rawText: string): any {
  * Normalizes budget allocations so the sum of category allocatedAmount
  * strictly equals totalBudgetINR without any rounding loss or discrepancy.
  */
-export function normalizeBudgetMath(totalBudgetINR: number, categories: any[]): any[] {
+export function normalizeBudgetMath(
+  totalBudgetINR: number,
+  categories: Partial<BudgetCategory>[] | Record<string, unknown>[],
+): BudgetCategory[] {
   if (!Array.isArray(categories) || categories.length === 0) {
-    return categories;
+    return [];
   }
 
   const safeTotal = Math.max(1000, Math.round(totalBudgetINR));
@@ -96,7 +130,7 @@ export function normalizeBudgetMath(totalBudgetINR: number, categories: any[]): 
   let runningSum = 0;
   const defaultColors = ['#6D28D9', '#7C3AED', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#64748B'];
 
-  const normalized = categories.map((cat, idx) => {
+  return categories.map((cat, idx) => {
     let amount = 0;
     if (idx === categories.length - 1) {
       amount = Math.max(0, safeTotal - runningSum);
@@ -109,19 +143,22 @@ export function normalizeBudgetMath(totalBudgetINR: number, categories: any[]): 
       runningSum += amount;
     }
 
+    const priorityVal = String(cat.priority || '').toLowerCase();
+    const priority = (['essential', 'recommended', 'optional'].includes(priorityVal)
+      ? priorityVal
+      : 'essential') as 'essential' | 'recommended' | 'optional';
+
     return {
-      id: cat.id || `cat-${idx + 1}`,
+      id: String(cat.id || `cat-${idx + 1}`),
       name: String(cat.name || `Category ${idx + 1}`),
       allocatedAmount: amount,
       percentage: Math.round((amount / safeTotal) * 100),
       spentAmount: Number(cat.spentAmount) || 0,
       description: String(cat.description || ''),
-      priority: ['essential', 'recommended', 'optional'].includes(cat.priority) ? cat.priority : 'essential',
-      color: cat.color || defaultColors[idx % defaultColors.length],
+      priority,
+      color: String(cat.color || defaultColors[idx % defaultColors.length]),
     };
   });
-
-  return normalized;
 }
 
 /**
@@ -255,10 +292,11 @@ Return STRICTLY a JSON object matching this schema:
           temperature: 0.7,
         },
       });
-      const result = await model.generateContent(prompt);
+      const result = await generateWithTimeout(model.generateContent(prompt));
       parsed = extractJSON(result.response.text());
-    } catch (err: any) {
-      console.warn(`[Gemini Backend] ${primaryModel} failed (${err.message}), retrying with ${fallbackModel}...`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Gemini Backend] ${primaryModel} failed (${errMsg}), retrying with ${fallbackModel}...`);
       usedModel = fallbackModel;
       const model = genAI.getGenerativeModel({
         model: fallbackModel,
@@ -267,7 +305,7 @@ Return STRICTLY a JSON object matching this schema:
           temperature: 0.7,
         },
       });
-      const result = await model.generateContent(prompt);
+      const result = await generateWithTimeout(model.generateContent(prompt));
       parsed = extractJSON(result.response.text());
     }
 
@@ -275,7 +313,7 @@ Return STRICTLY a JSON object matching this schema:
     const rawCategories = Array.isArray(parsed.budgetCategories) ? parsed.budgetCategories : [];
     const normalizedBudgetCategories = normalizeBudgetMath(
       formData.totalBudgetINR,
-      rawCategories
+      rawCategories,
     );
 
     const plan: CelebrationPlan = {
@@ -289,13 +327,14 @@ Return STRICTLY a JSON object matching this schema:
       totalAllocatedBudget: formData.totalBudgetINR,
       timelinePhases: Array.isArray(parsed.timelinePhases) ? parsed.timelinePhases : [],
       vendors: Array.isArray(parsed.vendors) ? parsed.vendors : [],
-      themeAndDecor: parsed.themeAndDecor || {},
-      foodAndEntertainment: parsed.foodAndEntertainment || {},
+      themeAndDecor: (parsed.themeAndDecor || {}) as ThemeDecorSection,
+      foodAndEntertainment: (parsed.foodAndEntertainment || {}) as FoodEntertainmentSection,
     };
 
     return plan;
-  } catch (error: any) {
-    console.error('[Gemini Backend] Error generating plan with Gemini API:', error.message);
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('[Gemini Backend] Error generating plan with Gemini API:', errMsg);
     console.log('[Gemini Backend] Safely falling back to curated dynamic event plan engine.');
     const fallback = generateCuratedPlan(formData);
     fallback.overviewSummary = `[Curated Engine Fallback] ${fallback.overviewSummary}`;
@@ -309,8 +348,8 @@ Return STRICTLY a JSON object matching this schema:
 export async function regenerateSectionWithGemini(
   currentPlan: CelebrationPlan,
   sectionKey: PlanSectionKey,
-  refinementPrompt?: string
-): Promise<{ sectionKey: PlanSectionKey; data: any; source: 'gemini' | 'curated_fallback'; modelUsed?: string }> {
+  refinementPrompt?: string,
+): Promise<{ sectionKey: PlanSectionKey; data: unknown; source: 'gemini' | 'curated_fallback'; modelUsed?: string }> {
   const genAI = getGenAI();
   if (!genAI) {
     console.log(`[Gemini Backend] Gemini key not present. Using curated regeneration for section: ${sectionKey}`);
@@ -409,7 +448,7 @@ export async function regenerateSectionWithGemini(
     "signatureMoments": ["Moment 1"],
     "partyFavors": ["Favor 1"]
   }
-}`
+}`,
   };
 
   try {
@@ -447,10 +486,11 @@ CRITICAL RULES:
           temperature: 0.8,
         },
       });
-      const result = await model.generateContent(prompt);
+      const result = await generateWithTimeout(model.generateContent(prompt));
       parsed = extractJSON(result.response.text());
-    } catch (err: any) {
-      console.warn(`[Gemini Backend] ${primaryModel} section regen failed (${err.message}), retrying with ${fallbackModel}...`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Gemini Backend] ${primaryModel} section regen failed (${errMsg}), retrying with ${fallbackModel}...`);
       usedModel = fallbackModel;
       const model = genAI.getGenerativeModel({
         model: fallbackModel,
@@ -459,14 +499,14 @@ CRITICAL RULES:
           temperature: 0.8,
         },
       });
-      const result = await model.generateContent(prompt);
+      const result = await generateWithTimeout(model.generateContent(prompt));
       parsed = extractJSON(result.response.text());
     }
 
-    let data: any;
+    let data: unknown;
 
     if (sectionKey === 'budget') {
-      const raw = parsed.budgetCategories || parsed.budget || (Array.isArray(parsed) ? parsed : []);
+      const raw = (parsed.budgetCategories || parsed.budget || (Array.isArray(parsed) ? parsed : [])) as Partial<BudgetCategory>[];
       data = normalizeBudgetMath(currentPlan.eventDetails.totalBudgetINR, raw);
     } else if (sectionKey === 'timeline') {
       data = parsed.timelinePhases || parsed.timeline || (Array.isArray(parsed) ? parsed : []);
@@ -486,8 +526,9 @@ CRITICAL RULES:
       source: 'gemini',
       modelUsed: usedModel,
     };
-  } catch (error: any) {
-    console.error(`[Gemini Backend] Error regenerating section ${sectionKey}:`, error.message);
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Gemini Backend] Error regenerating section ${sectionKey}:`, errMsg);
     const freshPlan = generateCuratedPlan(currentPlan.eventDetails);
     return {
       sectionKey,

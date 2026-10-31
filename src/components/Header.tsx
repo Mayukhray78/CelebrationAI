@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, PlusCircle, Key, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { HealthResponse } from '../services/api';
 
@@ -9,7 +9,7 @@ interface HeaderProps {
   hasActivePlan: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = React.memo(({
   health,
   onNewPlan,
   onOpenTemplates,
@@ -18,14 +18,39 @@ export const Header: React.FC<HeaderProps> = ({
   const [showKeyInfoModal, setShowKeyInfoModal] = useState(false);
 
   const isGeminiLive = health?.geminiConfigured;
+  const activeModelDisplay = health?.model || 'Gemini 3.5 Flash';
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    if (!showKeyInfoModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowKeyInfoModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showKeyInfoModal]);
 
   return (
     <>
       <header className="sticky top-0 z-40 bg-[#FAF8F5]/90 backdrop-blur-md border-b border-cream-200 shadow-sm no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between">
           {/* Logo & Tagline */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={onNewPlan}>
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-700 via-purple-600 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-500/20 text-white">
+          <div
+            className="flex items-center space-x-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-600 rounded-2xl p-1"
+            onClick={onNewPlan}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onNewPlan();
+              }
+            }}
+            aria-label="CelebrationAI Home, click to create new plan"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-700 via-purple-600 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-500/20 text-white" aria-hidden="true">
               <Sparkles className="w-6 h-6 animate-pulse text-amber-300" />
             </div>
             <div>
@@ -48,24 +73,25 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Gemini Status Pill */}
             <button
               onClick={() => setShowKeyInfoModal(true)}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-purple-600 ${
                 isGeminiLive
                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
                   : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
               }`}
               title="Click to view Gemini API status and instructions"
+              aria-label={`AI Status: ${isGeminiLive ? `${activeModelDisplay} Active` : 'Demo / Curated Mode'}. Click for details.`}
             >
               {isGeminiLive ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-600 -ml-3"></span>
-                  <span>Gemini 1.5 Flash Active</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" aria-hidden="true"></span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 -ml-3" aria-hidden="true"></span>
+                  <span>{activeModelDisplay} Active</span>
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                  <span className="w-2 h-2 rounded-full bg-purple-500" aria-hidden="true"></span>
                   <span>Demo / Curated Mode</span>
-                  <Info className="w-3.5 h-3.5 text-purple-500 ml-0.5" />
+                  <Info className="w-3.5 h-3.5 text-purple-500 ml-0.5" aria-hidden="true" />
                 </>
               )}
             </button>
@@ -73,9 +99,10 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Quick Sample Presets */}
             <button
               onClick={onOpenTemplates}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-white border border-cream-200 hover:border-purple-300 hover:bg-purple-50/50 shadow-sm transition-all"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-white border border-cream-200 hover:border-purple-300 hover:bg-purple-50/50 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-purple-600"
+              aria-label="Browse and load curated sample event blueprints"
             >
-              <Calendar className="w-4 h-4 text-purple-600" />
+              <Calendar className="w-4 h-4 text-purple-600" aria-hidden="true" />
               <span className="hidden md:inline">Sample Events</span>
               <span className="md:hidden">Samples</span>
             </button>
@@ -84,9 +111,10 @@ export const Header: React.FC<HeaderProps> = ({
             {hasActivePlan && (
               <button
                 onClick={onNewPlan}
-                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-purple-700 hover:bg-purple-800 shadow-sm shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-purple-700 hover:bg-purple-800 shadow-sm shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-purple-500"
+                aria-label="Start a new event plan"
               >
-                <PlusCircle className="w-4 h-4" />
+                <PlusCircle className="w-4 h-4" aria-hidden="true" />
                 <span>New Plan</span>
               </button>
             )}
@@ -96,25 +124,31 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Gemini Info Modal */}
       {showKeyInfoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="gemini-info-title"
+        >
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cream-200 relative">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700" aria-hidden="true">
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-slate-900">
+                  <h3 id="gemini-info-title" className="font-serif text-lg font-bold text-slate-900">
                     GenAI Engine Status
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Google Gemini 1.5 Flash & Fallback Engine
+                    Google Gemini API & Fallback Engine
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowKeyInfoModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                aria-label="Close dialog"
               >
                 ✕
               </button>
@@ -131,26 +165,26 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="flex items-center space-x-2 font-semibold text-xs sm:text-sm">
                   {isGeminiLive ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Gemini API is securely connected!</span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                      <span>Gemini API is securely connected ({activeModelDisplay})</span>
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="w-4 h-4 text-purple-600" />
+                      <AlertCircle className="w-4 h-4 text-purple-600" aria-hidden="true" />
                       <span>Currently running in Curated Intelligent Engine Mode</span>
                     </>
                   )}
                 </div>
                 <p className="text-xs mt-1 leading-relaxed opacity-90">
                   {isGeminiLive
-                    ? 'Plans and section regenerations are actively powered by Google Gemini 1.5 Flash via our secure backend.'
+                    ? 'Plans and section regenerations are actively powered by Google Gemini API via our secure backend.'
                     : 'The application uses our curated Indian event planner logic with exact INR financial normalization. You can test all features without setup!'}
                 </p>
               </div>
 
               <div className="bg-cream-50 p-4 rounded-2xl border border-cream-200 space-y-2 text-xs">
                 <p className="font-semibold text-slate-800">
-                  How to enable live Gemini AI:
+                  How to configure Google Gemini API:
                 </p>
                 <ol className="list-decimal pl-4 space-y-1 text-slate-600">
                   <li>
@@ -159,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
                       href="https://aistudio.google.com/"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-purple-600 underline font-medium"
+                      className="text-purple-600 underline font-medium focus:outline-none focus:ring-1 focus:ring-purple-600"
                     >
                       Google AI Studio
                     </a>
@@ -178,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="mt-5 flex justify-end">
               <button
                 onClick={() => setShowKeyInfoModal(false)}
-                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-xl transition"
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-xl transition focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 Got It
               </button>
@@ -188,4 +222,6 @@ export const Header: React.FC<HeaderProps> = ({
       )}
     </>
   );
-};
+});
+
+Header.displayName = 'Header';
